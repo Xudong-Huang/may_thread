@@ -20,8 +20,9 @@
 //!
 //! fn main() {
 //!     let j = go!(|| {
-//!         // resolve the dns in another thread
-//!         let _addr = join(|| {});
+//!         let _result = join(|| {
+//!             // ......
+//!         });
 //!     });
 //!     j.join();
 //! }
@@ -63,8 +64,9 @@ use may::sync::{AtomicOption, Blocker};
 ///
 /// fn main() {
 ///     let j = go!(|| {
-///         // resolve the dns in another thread
-///         let _addr = join(|| {});
+///         let _result = join(|| {
+///             // ......
+///         });
 ///     });
 ///     j.join();
 /// }
