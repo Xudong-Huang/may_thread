@@ -4,6 +4,27 @@ Execute functions asynchronously in another thread. Mainly designed for use in c
 
 Some APIs would block the thread execution, but hard to implement an async version, e.g. the DNS resolve. We can put those blocking API execution in another thread and asynchronously wait for the result.
 
+[![Build Status](https://travis-ci.org/Xudong-Huang/may_thread.svg?branch=master)](https://travis-ci.org/Xudong-Huang/may_thread)
+[![Build status](https://ci.appveyor.com/api/projects/status/c6v7w9po819ya3yb/branch/master?svg=true)](https://ci.appveyor.com/project/Xudong-Huang/may-thread/branch/master)
+
+
+## Usage
+
+First, add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+may_process = { git = "https://github.com/Xudong-Huang/may_thread.git" }
+```
+
+Next you can use the API directly:
+
+```rust,no_run
+#[macro_use]
+extern crate may;
+extern crate may_thread;
+```
+
 # License
 
 This project is licensed under either of
