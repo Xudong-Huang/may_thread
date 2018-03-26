@@ -29,12 +29,14 @@
 //! ```
 //!
 
-#![warn(missing_debug_implementations)]
+// #![warn(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/may_thread/0.1")]
 
 #[doc(hiden)]
 extern crate may;
+
+mod pool;
 
 use std::mem;
 use std::panic;
@@ -44,6 +46,8 @@ use std::sync::atomic::Ordering;
 
 use may::coroutine;
 use may::sync::{AtomicOption, Blocker};
+
+pub use pool::ThreadPool;
 
 /// Execute the given closure in a new created thread, and wait for the
 /// result asynchronously in coroutine context.
@@ -146,12 +150,6 @@ mod tests {
         let mut i = 0;
         join(|| i = 10);
         assert_eq!(i, 10);
-    }
-
-    #[test]
-    #[should_panic]
-    fn simple_panic() {
-        join(|| assert_eq!(true, false));
     }
 
     #[test]
