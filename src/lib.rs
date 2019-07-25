@@ -33,19 +33,14 @@
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/may_thread/0.1")]
 
-#[doc(hiden)]
-extern crate may;
-
 mod pool;
 
 use std::mem;
 use std::panic;
 use std::thread;
-use std::sync::Arc;
-use std::sync::atomic::Ordering;
 
 use may::coroutine;
-use may::sync::{AtomicOption, Blocker};
+use may::sync::Blocker;
 
 pub use pool::ThreadPool;
 
@@ -82,35 +77,20 @@ where
     T: Send,
 {
     let blocker = Blocker::current();
-    let ret = Arc::new(AtomicOption::none());
-    let err = Arc::new(AtomicOption::none());
+    let mut ret = None;
 
     let _join = unsafe {
-        let ret = ret.clone();
-        let err = err.clone();
-        let blocker = blocker.clone();
-        spawn_unsafe(move || {
-            let exit = panic::catch_unwind(panic::AssertUnwindSafe(f));
-            match exit {
-                Ok(r) => {
-                    ret.swap(r, Ordering::Relaxed);
-                }
-                Err(e) => {
-                    err.swap(e, Ordering::Relaxed);
-                }
-            }
+        spawn_unsafe(|| {
+            ret = Some(panic::catch_unwind(panic::AssertUnwindSafe(f)));
             blocker.unpark();
         })
     };
     // we can't use the `join()` API here, it will block the thread!
     // we need catch the panic inside `f`, or we may wait forever!
     match blocker.park(None) {
-        Ok(_) => match ret.take(Ordering::Relaxed) {
-            Some(v) => v,
-            None => match err.take(Ordering::Relaxed) {
-                Some(panic) => panic::resume_unwind(panic),
-                None => panic!("failed to get result"),
-            },
+        Ok(_) => match ret.expect("ret not set") {
+            Ok(ret) => ret,
+            Err(panic) => panic::resume_unwind(panic),
         },
         Err(_) => {
             // impossible be a timeout err
@@ -120,25 +100,14 @@ where
     }
 }
 
-#[doc(hidden)]
-trait FnBox {
-    fn call_box(self: Box<Self>);
-}
-
-impl<F: FnOnce()> FnBox for F {
-    fn call_box(self: Box<Self>) {
-        (*self)()
-    }
-}
-
 /// Like `thread::spawn`, but without the closure bounds.
 unsafe fn spawn_unsafe<'a, F>(f: F) -> thread::JoinHandle<()>
 where
     F: FnOnce() + Send + 'a,
 {
-    let closure: Box<FnBox + 'a> = Box::new(f);
-    let closure: Box<FnBox + Send> = mem::transmute(closure);
-    thread::spawn(move || closure.call_box())
+    let closure: Box<dyn FnOnce() + 'a> = Box::new(f);
+    let closure: Box<dyn FnOnce() + Send> = mem::transmute(closure);
+    thread::spawn(move || closure())
 }
 
 #[cfg(test)]

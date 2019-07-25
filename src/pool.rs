@@ -2,26 +2,15 @@
 //! when init thread pool, we need to tell it how to init the associated data
 //! ThreadPool
 
-use std::thread;
 use may::coroutine;
 use may::sync::mpmc;
-
-#[doc(hidden)]
-trait FnBox<S> {
-    fn call_box(self: Box<Self>, state: &mut S);
-}
-
-impl<S, F: FnOnce(&mut S)> FnBox<S> for F {
-    fn call_box(self: Box<Self>, state: &mut S) {
-        (*self)(state)
-    }
-}
+use std::thread;
 
 /// Thread pool that can run closures in parallel
 pub struct ThreadPool<S> {
     // all worker thread share the same mpmc queue
     // used to push works into the queue
-    queue_tx: mpmc::Sender<Box<FnBox<S> + Send>>,
+    queue_tx: mpmc::Sender<Box<dyn FnOnce(&mut S) + Send>>,
 
     // thread pool handles
     threads: Vec<Option<thread::JoinHandle<()>>>,
@@ -39,7 +28,7 @@ impl<S: Send + 'static> ThreadPool<S> {
         F: Fn() -> S,
     {
         let mut threads = Vec::with_capacity(size);
-        let (tx, rx) = mpmc::channel::<Box<FnBox<S> + Send>>();
+        let (tx, rx) = mpmc::channel::<Box<dyn FnOnce(&mut S) + Send>>();
         for _i in 0..size {
             // each thread has a internal state
             let mut state = f();
@@ -47,7 +36,7 @@ impl<S: Send + 'static> ThreadPool<S> {
             let thread = thread::spawn(move || {
                 for work in rx.into_iter() {
                     // execute the work
-                    work.call_box(&mut state);
+                    work(&mut state);
                 }
             });
             threads.push(Some(thread));
@@ -69,19 +58,20 @@ impl<S: Send + 'static> ThreadPool<S> {
         use std::mem;
         use std::panic;
 
-        let mut ret = unsafe { mem::zeroed() };
+        let mut ret = None;
         {
-            let clo: Box<FnBox<S> + Send> = Box::new(|s: &mut S| {
-                ret = panic::catch_unwind(panic::AssertUnwindSafe(|| f(s)));
+            let clo: Box<dyn FnOnce(&mut S) + Send> = Box::new(|s: &mut S| {
+                // this would be run in a worker thread
+                ret = Some(panic::catch_unwind(panic::AssertUnwindSafe(|| f(s))));
             });
-            let clo: Box<FnBox<S> + Send + 'static> = unsafe { mem::transmute(clo) };
+            let clo: Box<dyn FnOnce(&mut S) + Send + 'static> = unsafe { mem::transmute(clo) };
             self.queue_tx
                 .send(clo)
                 .expect("failed to send to work queue");
             coroutine::sleep(::std::time::Duration::from_secs(1));
         }
 
-        ret.unwrap()
+        ret.unwrap().unwrap()
     }
 }
 
