@@ -14,22 +14,30 @@ First, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-may_process = { git = "https://github.com/Xudong-Huang/may_thread.git" }
+may_thread = { git = "https://github.com/Xudong-Huang/may_thread.git" }
 ```
 
 Next you can use the API directly:
 
 ```rust,no_run
-#[macro_use]
-extern crate may;
-extern crate may_thread;
-
 use std::net::ToSocketAddrs;
+
+lazy_static::lazy_static! {
+    static ref POOL: may_thread::ThreadPool<()> = may_thread::ThreadPool::new(||{}, 4);
+}
 
 fn main() {
     // async resolve the socket address
     go!(|| {
         let addr = may_thread::join(|| ("www.baidu.com", 80).to_socket_addrs().unwrap());
+        for a in addr {
+            println!("addr={:?}", a);
+        }
+    }).join().unwrap();
+    
+    // async resolve the socket address in thread pool
+    go!(|| {
+        let addr = POOL.join(|_| ("www.baidu.com", 80).to_socket_addrs().unwrap());
         for a in addr {
             println!("addr={:?}", a);
         }

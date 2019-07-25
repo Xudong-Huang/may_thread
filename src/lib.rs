@@ -29,7 +29,6 @@
 //! ```
 //!
 
-// #![warn(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/may_thread/0.1")]
 
@@ -119,6 +118,12 @@ mod tests {
         let mut i = 0;
         join(|| i = 10);
         assert_eq!(i, 10);
+    }
+
+    #[test]
+    #[should_panic]
+    fn simple_panic() {
+        join(|| assert_eq!(true, false));
     }
 
     #[test]

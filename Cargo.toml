@@ -8,7 +8,7 @@ repository = "https://github.com/Xudong-Huang/may_thread"
 homepage = "https://github.com/Xudong-Huang/may_thread"
 documentation = "https://docs.rs/may_thread"
 description = """
-asynchronous process library that can be used in coroutines
+asynchronous thread/threadpool library that can be used in coroutines
 """
 categories = ["asynchronous"]
 
